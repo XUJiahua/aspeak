@@ -18,6 +18,7 @@ use uuid::Uuid;
 pub struct WebsocketSynthesizer {
     pub(super) audio_format: AudioFormat,
     pub(super) stream: WsStream,
+    pub audio_metadata: Option<Vec<String>>,
 }
 
 impl WebsocketSynthesizer {
@@ -30,7 +31,7 @@ impl WebsocketSynthesizer {
         let request_id = uuid.as_simple();
         let now = Utc::now();
         let synthesis_context = format!(
-            r#"{{"synthesis":{{"audio":{{"metadataOptions":{{"sentenceBoundaryEnabled":false,"wordBoundaryEnabled":false,"sessionEndEnabled":false}},"outputFormat":"{}"}}}}}}"#,
+            r#"{{"synthesis":{{"audio":{{"metadataOptions":{{"sentenceBoundaryEnabled":false,"wordBoundaryEnabled":true,"sessionEndEnabled":false}},"outputFormat":"{}"}}}}}}"#,
             Into::<&str>::into(self.audio_format)
         );
         self.stream.send(Message::Text(format!(
@@ -42,12 +43,16 @@ impl WebsocketSynthesizer {
             "Path: ssml\r\nX-RequestId: {request_id}\r\nX-Timestamp: {now:?}\r\nContent-Type: application/ssml+xml\r\n\r\n{ssml}"
         ))).await?;
         let mut buffer = Vec::new();
+        let mut audio_metadata = Vec::new();
         while let Some(raw_msg) = self.stream.next().await.transpose()? {
             let msg = WebSocketMessage::try_from(&raw_msg)?;
             match msg {
                 WebSocketMessage::TurnStart | WebSocketMessage::Response { body: _ } => continue,
                 WebSocketMessage::Audio { data } => {
                     buffer.extend_from_slice(data);
+                }
+                WebSocketMessage::AudioMetadata { body } => {
+                    audio_metadata.push(body.to_string());
                 }
                 WebSocketMessage::TurnEnd => {
                     break;
@@ -71,6 +76,8 @@ impl WebsocketSynthesizer {
                 msg => warn!("Received a message that is not handled: {:?}", msg),
             }
         }
+        self.audio_metadata = Some(audio_metadata);
+
         Ok(buffer)
     }
 

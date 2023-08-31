@@ -124,6 +124,7 @@ impl<'a> SynthesizerConfig<'a> {
         Ok(WebsocketSynthesizer {
             audio_format: self.audio_format,
             stream: wss,
+            audio_metadata: None,
         })
     }
 

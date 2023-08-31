@@ -17,6 +17,9 @@ pub(crate) enum WebSocketMessage<'a> {
     Response {
         body: &'a str,
     },
+    AudioMetadata {
+        body: &'a str,
+    },
     Audio {
         data: &'a [u8],
     },
@@ -65,6 +68,9 @@ impl<'a> TryFrom<&'a Message> for WebSocketMessage<'a> {
                             "turn.end" => result = Some(WebSocketMessage::TurnEnd),
                             "turn.start" => result = Some(WebSocketMessage::TurnStart),
                             "response" => result = Some(WebSocketMessage::Response { body }),
+                            "audio.metadata" => {
+                                result = Some(WebSocketMessage::AudioMetadata { body })
+                            }
                             _ => break,
                         }
                     }
